@@ -1,0 +1,695 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>通用爬虫与数据智能提取系统 | RAG & Agent 数据管线</title>
+  <!-- 引入 Tailwind CSS & 图标库 -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <!-- 引入 Markdown 渲染库 Marked.js -->
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <!-- 引入 Vue 3 -->
+  <script src="https://cdn.jsdelivr.net/npm/vue@3/dist/vue.global.prod.js"></script>
+  <link rel="stylesheet" href="app.css">
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen font-sans antialiased">
+  <div id="app" class="flex flex-col min-h-screen">
+
+    <!-- 顶部全局导航栏 (公共布局) -->
+    <header class="bg-slate-800/90 backdrop-blur border-b border-slate-700 sticky top-0 z-50">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+        <div class="flex items-center space-x-3">
+          <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg shadow-indigo-500/30">
+            <i class="fa-solid fa-spider text-white text-xl"></i>
+          </div>
+          <div>
+            <h1 class="text-lg font-bold bg-gradient-to-r from-white to-slate-300 bg-clip-text text-transparent">
+              通用爬虫与数据智能提取系统
+            </h1>
+            <p class="text-xs text-slate-400">RAG & Agent 知识摄取端到端闭环平台</p>
+          </div>
+        </div>
+
+        <!-- 页面标签切换导航 -->
+        <nav class="flex items-center space-x-1 bg-slate-900/60 p-1 rounded-xl border border-slate-700/60">
+          <button 
+            @click="activeTab = 'dashboard'" 
+            :class="['px-4 py-2 text-sm font-medium rounded-lg transition-all flex items-center space-x-2', activeTab === 'dashboard' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-300 hover:text-white hover:bg-slate-800']">
+            <i class="fa-solid fa-gauge-high"></i>
+            <span>① 首页/工作台</span>
+          </button>
+          <button 
+            @click="activeTab = 'preview'" 
+            :class="['px-4 py-2 text-sm font-medium rounded-lg transition-all flex items-center space-x-2', activeTab === 'preview' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-300 hover:text-white hover:bg-slate-800']">
+            <i class="fa-regular fa-file-lines"></i>
+            <span>② MD内容预览</span>
+          </button>
+          <button 
+            @click="activeTab = 'extract'" 
+            :class="['px-4 py-2 text-sm font-medium rounded-lg transition-all flex items-center space-x-2', activeTab === 'extract' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-300 hover:text-white hover:bg-slate-800']">
+            <i class="fa-solid fa-wand-magic-sparkles"></i>
+            <span>③ 字段配置与提取</span>
+          </button>
+          <button 
+            @click="activeTab = 'storage'" 
+            :class="['px-4 py-2 text-sm font-medium rounded-lg transition-all flex items-center space-x-2', activeTab === 'storage' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-300 hover:text-white hover:bg-slate-800']">
+            <i class="fa-solid fa-database"></i>
+            <span>④ MongoDB数据查看</span>
+          </button>
+        </nav>
+
+        <!-- 系统运行状态信息 -->
+        <div class="hidden lg:flex items-center space-x-4 text-xs">
+          <div class="flex items-center space-x-1.5 px-2.5 py-1 rounded-full bg-slate-900/80 border border-slate-700">
+            <span :class="['w-2 h-2 rounded-full', sysStatus.mongodb_connected ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400']"></span>
+            <span class="text-slate-300">
+              存储: {{ sysStatus.storage_mode === 'mongodb' ? 'MongoDB已直连' : '本地持久化模式' }}
+            </span>
+          </div>
+          <button @click="showConfigModal = true" class="text-slate-400 hover:text-indigo-400 transition" title="配置中心">
+            <i class="fa-solid fa-gear text-base"></i>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <!-- 主体内容区域 -->
+    <main class="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8">
+
+      <!-- ================= 页面 1: 首页 / 工作台 ================= -->
+      <section v-if="activeTab === 'dashboard'" class="space-y-6">
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          
+          <!-- 左侧：爬取任务发起控制台 -->
+          <div class="lg:col-span-7 bg-slate-800/70 border border-slate-700 rounded-2xl p-6 shadow-xl space-y-5">
+            <div class="flex items-center justify-between border-b border-slate-700/60 pb-4">
+              <h2 class="text-base font-semibold text-white flex items-center space-x-2">
+                <i class="fa-solid fa-rocket text-indigo-400"></i>
+                <span>发起爬取任务</span>
+              </h2>
+              <span class="text-xs text-slate-400">支持单行/批量网址自动识别与降噪</span>
+            </div>
+
+            <!-- 任务 ID -->
+            <div>
+              <label class="block text-xs font-medium text-slate-300 mb-1.5">
+                任务 ID <span class="text-slate-500">(系统自动生成，全局唯一标识)</span>
+              </label>
+              <div class="flex space-x-2">
+                <input 
+                  type="text" 
+                  :value="crawlForm.task_id" 
+                  readonly 
+                  class="flex-1 bg-slate-900/80 border border-slate-700 rounded-lg px-3.5 py-2 text-sm text-slate-400 font-mono focus:outline-none cursor-not-allowed">
+                <button 
+                  @click="generateNewTaskId" 
+                  class="px-3 py-2 bg-slate-700 hover:bg-slate-600 text-slate-200 rounded-lg text-xs transition" 
+                  title="重新生成任务ID">
+                  <i class="fa-solid fa-rotate-right"></i>
+                </button>
+              </div>
+            </div>
+
+            <!-- 待爬取网址 -->
+            <div>
+              <div class="flex items-center justify-between mb-1.5">
+                <label class="text-xs font-medium text-slate-300">
+                  目标网址 <span class="text-rose-400">*</span> <span class="text-slate-500">(支持批量输入，一行一个)</span>
+                </label>
+                <div class="space-x-2">
+                  <button @click="fillSampleUrl('baike')" class="text-xs text-indigo-400 hover:underline">
+                    填入百科示例
+                  </button>
+                  <button @click="fillSampleUrl('news')" class="text-xs text-indigo-400 hover:underline">
+                    填入新闻示例
+                  </button>
+                </div>
+              </div>
+              <textarea 
+                v-model="crawlForm.urlsText" 
+                rows="4" 
+                placeholder="https://baike.baidu.com/item/人工智能/9180&#10;https://news.sina.com.cn/..."
+                class="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 text-sm font-mono text-slate-100 placeholder-slate-500 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"></textarea>
+            </div>
+
+            <!-- 反爬间隔控制 -->
+            <div class="flex items-center justify-between bg-slate-900/50 p-3 rounded-lg border border-slate-700/50 text-xs text-slate-300">
+              <span class="flex items-center space-x-2">
+                <i class="fa-solid fa-shield-halved text-emerald-400"></i>
+                <span>反爬保护策略：自动轮换 User-Agent，请求间隔</span>
+              </span>
+              <div class="flex items-center space-x-2">
+                <input type="number" v-model.number="crawlForm.delay" step="0.5" min="0" class="w-16 bg-slate-800 border border-slate-700 px-2 py-1 rounded text-center text-white">
+                <span>秒</span>
+              </div>
+            </div>
+
+            <!-- 操作按钮 -->
+            <div class="flex items-center space-x-3 pt-2">
+              <button 
+                @click="startCrawlTask" 
+                :disabled="isCrawling" 
+                class="flex-1 py-2.5 px-4 bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-500 hover:to-indigo-600 disabled:opacity-50 text-white font-medium rounded-xl shadow-lg shadow-indigo-600/30 transition flex items-center justify-center space-x-2">
+                <i v-if="!isCrawling" class="fa-solid fa-play"></i>
+                <i v-else class="fa-solid fa-circle-notch fa-spin"></i>
+                <span>{{ isCrawling ? '正在执行爬取与MD转换...' : '开始爬取并转换 Markdown' }}</span>
+              </button>
+              <button 
+                @click="stopCrawlTask" 
+                :disabled="!isCrawling" 
+                class="py-2.5 px-4 bg-rose-600/20 text-rose-300 border border-rose-500/40 hover:bg-rose-600 hover:text-white disabled:opacity-40 font-medium rounded-xl transition">
+                <i class="fa-solid fa-stop mr-1"></i>
+                <span>停止</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- 右侧：实时日志输出区 (终端风格) -->
+          <div class="lg:col-span-5 bg-slate-950 border border-slate-800 rounded-2xl p-5 shadow-xl flex flex-col h-[420px]">
+            <div class="flex items-center justify-between border-b border-slate-800 pb-3 mb-3">
+              <div class="flex items-center space-x-2 text-xs font-mono text-slate-400">
+                <span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
+                <span>实时任务日志控制台</span>
+              </div>
+              <button @click="clearLogs" class="text-xs text-slate-500 hover:text-slate-300">
+                清屏
+              </button>
+            </div>
+            
+            <div ref="logBox" class="flex-1 overflow-y-auto space-y-2 font-mono text-xs pr-2">
+              <div v-if="logs.length === 0" class="text-slate-600 text-center py-20">
+                暂无日志输出，点击“开始爬取”后将在此实时展示
+              </div>
+              <div v-for="(log, idx) in logs" :key="idx" class="flex items-start space-x-2 leading-relaxed">
+                <span class="text-slate-500 shrink-0">[{{ log.time }}]</span>
+                <span :class="{
+                  'text-emerald-400': log.level === 'SUCCESS',
+                  'text-rose-400': log.level === 'ERROR',
+                  'text-amber-400': log.level === 'WARN',
+                  'text-slate-300': log.level === 'INFO'
+                }">
+                  {{ log.message }}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 任务列表快捷入口 -->
+        <div class="bg-slate-800/70 border border-slate-700 rounded-2xl p-6 shadow-xl">
+          <div class="flex items-center justify-between mb-4">
+            <h2 class="text-base font-semibold text-white flex items-center space-x-2">
+              <i class="fa-solid fa-list-check text-indigo-400"></i>
+              <span>最近爬取任务列表</span>
+            </h2>
+            <button @click="fetchTaskList" class="text-xs text-indigo-400 hover:underline flex items-center space-x-1">
+              <i class="fa-solid fa-arrows-rotate"></i>
+              <span>刷新任务</span>
+            </button>
+          </div>
+
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs border-collapse">
+              <thead>
+                <tr class="border-b border-slate-700 text-slate-400">
+                  <th class="py-2.5 px-3">任务 ID</th>
+                  <th class="py-2.5 px-3">目标域名 / 网址</th>
+                  <th class="py-2.5 px-3">爬取时间</th>
+                  <th class="py-2.5 px-3">MD 存储文件名</th>
+                  <th class="py-2.5 px-3">状态</th>
+                  <th class="py-2.5 px-3 text-right">快捷操作</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-700/50 text-slate-300">
+                <tr v-if="taskList.length === 0">
+                  <td colspan="6" class="text-center py-8 text-slate-500">暂无历史任务，请在上方发起新爬取</td>
+                </tr>
+                <tr v-for="t in taskList" :key="t.task_id + t.url" class="hover:bg-slate-750 transition">
+                  <td class="py-3 px-3 font-mono text-indigo-300 font-semibold">{{ t.task_id }}</td>
+                  <td class="py-3 px-3 max-w-xs truncate" :title="t.url">{{ t.url }}</td>
+                  <td class="py-3 px-3 text-slate-400">{{ t.crawl_time }}</td>
+                  <td class="py-3 px-3 font-mono text-slate-400 max-w-[200px] truncate">{{ t.md_file_name || '-' }}</td>
+                  <td class="py-3 px-3">
+                    <span :class="['px-2 py-0.5 rounded text-[11px]', t.status === 'success' || t.status === 'completed' ? 'bg-emerald-500/20 text-emerald-300' : 'bg-rose-500/20 text-rose-300']">
+                      {{ t.status === 'success' || t.status === 'completed' ? '成功' : '失败' }}
+                    </span>
+                  </td>
+                  <td class="py-3 px-3 text-right space-x-2">
+                    <button @click="viewTaskPreview(t.task_id)" class="px-2.5 py-1 bg-slate-700 hover:bg-slate-600 rounded text-slate-200 transition">
+                      <i class="fa-regular fa-file-lines mr-1"></i> 预览 MD
+                    </button>
+                    <button @click="goToExtraction(t.task_id)" class="px-2.5 py-1 bg-indigo-600 hover:bg-indigo-500 rounded text-white transition">
+                      <i class="fa-solid fa-wand-magic-sparkles mr-1"></i> 提取字段
+                    </button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= 页面 2: MD 内容预览页 ================= -->
+      <section v-if="activeTab === 'preview'" class="space-y-6">
+        <!-- 任务选择与信息卡片 -->
+        <div class="bg-slate-800/70 border border-slate-700 rounded-2xl p-5 shadow-xl flex flex-wrap items-center justify-between gap-4">
+          <div class="flex items-center space-x-3">
+            <span class="text-xs text-slate-400 font-medium">查看任务:</span>
+            <select v-model="selectedTaskId" @change="loadTaskDetail" class="bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none">
+              <option v-for="t in taskList" :key="t.task_id" :value="t.task_id">
+                {{ t.task_id }} ({{ t.domain || t.url }})
+              </option>
+            </select>
+          </div>
+
+          <div class="flex items-center space-x-3 text-xs">
+            <button @click="downloadCurrentMd" :disabled="!currentTaskDetail.md_content" class="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 disabled:opacity-50 rounded-lg text-slate-200 transition flex items-center space-x-1.5">
+              <i class="fa-solid fa-download"></i>
+              <span>下载 MD 文件</span>
+            </button>
+            <button @click="goToExtraction(selectedTaskId)" class="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-500 rounded-lg text-white font-medium shadow-md transition flex items-center space-x-1.5">
+              <span>前往「字段提取」</span>
+              <i class="fa-solid fa-arrow-right"></i>
+            </button>
+          </div>
+        </div>
+
+        <!-- 文件元数据卡片 -->
+        <div v-if="currentTaskDetail.task_id" class="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div class="bg-slate-800/50 border border-slate-700/60 p-4 rounded-xl">
+            <div class="text-[11px] text-slate-400">任务 ID</div>
+            <div class="text-sm font-mono font-semibold text-indigo-400 truncate mt-1">{{ currentTaskDetail.task_id }}</div>
+          </div>
+          <div class="bg-slate-800/50 border border-slate-700/60 p-4 rounded-xl">
+            <div class="text-[11px] text-slate-400">域名 / 来源</div>
+            <div class="text-sm font-semibold text-slate-200 truncate mt-1">{{ currentTaskDetail.domain || '-' }}</div>
+          </div>
+          <div class="bg-slate-800/50 border border-slate-700/60 p-4 rounded-xl">
+            <div class="text-[11px] text-slate-400">爬取时间</div>
+            <div class="text-sm text-slate-300 mt-1">{{ currentTaskDetail.crawl_time || '-' }}</div>
+          </div>
+          <div class="bg-slate-800/50 border border-slate-700/60 p-4 rounded-xl">
+            <div class="text-[11px] text-slate-400">存储路径</div>
+            <div class="text-xs font-mono text-slate-400 truncate mt-1" :title="currentTaskDetail.md_file_path">{{ currentTaskDetail.md_file_name || '-' }}</div>
+          </div>
+        </div>
+
+        <!-- 双栏对比：左侧 MD 原文，右侧 MD 渲染效果 -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <!-- MD 原文 -->
+          <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl flex flex-col h-[600px]">
+            <div class="flex items-center justify-between pb-3 border-b border-slate-800 text-xs font-mono text-slate-400">
+              <span class="flex items-center space-x-1.5">
+                <i class="fa-regular fa-file-code text-indigo-400"></i>
+                <span>Markdown 原文</span>
+              </span>
+              <button @click="copyMdText" class="hover:text-white transition">
+                <i class="fa-regular fa-copy mr-1"></i>复制
+              </button>
+            </div>
+            <textarea 
+              readonly 
+              :value="currentTaskDetail.md_content || '暂无内容，请先在首页选择或完成爬虫任务'" 
+              class="w-full flex-1 bg-transparent text-xs font-mono text-slate-300 p-3 resize-none focus:outline-none overflow-y-auto leading-relaxed"></textarea>
+          </div>
+
+          <!-- MD 渲染预览区 -->
+          <div class="bg-slate-800/80 border border-slate-700 rounded-2xl p-5 shadow-xl flex flex-col h-[600px]">
+            <div class="flex items-center justify-between pb-3 border-b border-slate-700 text-xs text-slate-400">
+              <span class="flex items-center space-x-1.5 font-medium">
+                <i class="fa-regular fa-eye text-emerald-400"></i>
+                <span>Markdown 格式渲染预览</span>
+              </span>
+              <span class="text-[11px] text-slate-500">标题、列表、表格规范渲染</span>
+            </div>
+            <div 
+              class="flex-1 overflow-y-auto p-4 prose prose-invert max-w-none text-slate-200 text-sm markdown-body" 
+              v-html="renderedMarkdownHtml"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= 页面 3: 自定义字段配置与提取页 ================= -->
+      <section v-if="activeTab === 'extract'" class="space-y-6">
+        <!-- 顶部：关联任务与预设模板选择 -->
+        <div class="bg-slate-800/70 border border-slate-700 rounded-2xl p-5 shadow-xl flex flex-wrap items-center justify-between gap-4">
+          <div class="flex items-center space-x-3">
+            <label class="text-xs font-medium text-slate-300">关联已爬取任务:</label>
+            <select v-model="selectedTaskId" class="bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none">
+              <option v-for="t in taskList" :key="t.task_id" :value="t.task_id">
+                {{ t.task_id }} ({{ t.domain || t.url }})
+              </option>
+            </select>
+          </div>
+
+          <!-- 快速导入预设行业模板 -->
+          <div class="flex items-center space-x-2">
+            <span class="text-xs text-slate-400">快速填入行业模板:</span>
+            <button @click="applyTemplate('wiki')" class="px-2.5 py-1 text-xs bg-slate-700 hover:bg-slate-600 rounded text-slate-200">百科模板</button>
+            <button @click="applyTemplate('ecommerce')" class="px-2.5 py-1 text-xs bg-slate-700 hover:bg-slate-600 rounded text-slate-200">电商模板</button>
+            <button @click="applyTemplate('news')" class="px-2.5 py-1 text-xs bg-slate-700 hover:bg-slate-600 rounded text-slate-200">新闻模板</button>
+          </div>
+        </div>
+
+        <!-- 字段配置区 + AI 提取参数 -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          
+          <!-- 左侧：字段配置树 (主字段 + 子字段) -->
+          <div class="lg:col-span-7 bg-slate-800/70 border border-slate-700 rounded-2xl p-6 shadow-xl space-y-5">
+            <div class="flex items-center justify-between border-b border-slate-700 pb-3">
+              <div>
+                <h3 class="text-sm font-semibold text-white flex items-center space-x-2">
+                  <i class="fa-solid fa-list-check text-indigo-400"></i>
+                  <span>自定义主 / 子字段配置</span>
+                </h3>
+                <p class="text-[11px] text-slate-400 mt-0.5">为每个字段填写精准的业务解释，以引导大模型完成语义理解与抽取</p>
+              </div>
+              <div class="space-x-2">
+                <button @click="addMainField" class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-medium transition">
+                  <i class="fa-solid fa-plus mr-1"></i> 添加主字段
+                </button>
+                <button @click="clearFields" class="px-2.5 py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-lg text-xs transition">
+                  清空
+                </button>
+              </div>
+            </div>
+
+            <!-- 主字段卡片列表 -->
+            <div class="space-y-4 max-h-[480px] overflow-y-auto pr-2">
+              <div v-for="(mf, mIdx) in fieldConfig" :key="mIdx" class="bg-slate-900/80 border border-slate-700/80 rounded-xl p-4 space-y-3">
+                <!-- 主字段行 -->
+                <div class="flex items-start justify-between gap-3">
+                  <div class="flex-1 grid grid-cols-1 md:grid-cols-2 gap-2">
+                    <input 
+                      type="text" 
+                      v-model="mf.name" 
+                      placeholder="主字段名称 (例: 商品基本信息)" 
+                      class="bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500">
+                    <input 
+                      type="text" 
+                      v-model="mf.desc" 
+                      placeholder="主字段解释 (例: 商品名称与分类归属)" 
+                      class="bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500">
+                  </div>
+                  <div class="flex items-center space-x-1 shrink-0">
+                    <button @click="addSubField(mIdx)" class="px-2 py-1 bg-slate-700 hover:bg-slate-600 text-indigo-300 rounded text-xs" title="添加子字段">
+                      <i class="fa-solid fa-plus"></i> 子字段
+                    </button>
+                    <button @click="removeMainField(mIdx)" class="p-1 text-slate-500 hover:text-rose-400 rounded" title="删除主字段">
+                      <i class="fa-solid fa-trash-can"></i>
+                    </button>
+                  </div>
+                </div>
+
+                <!-- 归属子字段列表 -->
+                <div v-if="mf.sub_fields.length > 0" class="pl-4 border-l-2 border-indigo-500/40 space-y-2 mt-2">
+                  <div v-for="(sf, sIdx) in mf.sub_fields" :key="sIdx" class="flex items-center justify-between gap-2">
+                    <div class="flex-1 grid grid-cols-1 md:grid-cols-2 gap-2">
+                      <input 
+                        type="text" 
+                        v-model="sf.name" 
+                        placeholder="子字段名 (例: 实际售价)" 
+                        class="bg-slate-800/80 border border-slate-700 rounded px-2.5 py-1 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-indigo-500">
+                      <input 
+                        type="text" 
+                        v-model="sf.desc" 
+                        placeholder="子字段解释 (例: 实际到手金额，纯数字)" 
+                        class="bg-slate-800/80 border border-slate-700 rounded px-2.5 py-1 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-indigo-500">
+                    </div>
+                    <button @click="removeSubField(mIdx, sIdx)" class="p-1 text-slate-500 hover:text-rose-400" title="删除子字段">
+                      <i class="fa-solid fa-xmark"></i>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- 可折叠：NewAPI 提取参数配置区 -->
+            <div class="border border-slate-700 rounded-xl overflow-hidden">
+              <button @click="toggleAiParamAccordion" class="w-full px-4 py-2.5 bg-slate-900/60 flex items-center justify-between text-xs text-slate-300 font-medium">
+                <span class="flex items-center space-x-2">
+                  <i class="fa-solid fa-sliders text-indigo-400"></i>
+                  <span>NewAPI 大模型调用参数 (可折叠配置)</span>
+                </span>
+                <i :class="['fa-solid transition-transform', isAiAccordionOpen ? 'fa-chevron-up' : 'fa-chevron-down']"></i>
+              </button>
+              <div v-show="isAiAccordionOpen" class="p-4 bg-slate-900/40 space-y-3 text-xs border-t border-slate-700">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div>
+                    <label class="block text-slate-400 mb-1">API 接口地址</label>
+                    <input type="text" v-model="aiForm.api_url" class="w-full bg-slate-800 border border-slate-700 rounded px-2.5 py-1.5 text-slate-200">
+                  </div>
+                  <div>
+                    <label class="block text-slate-400 mb-1">模型名称 (Model)</label>
+                    <input type="text" v-model="aiForm.model" class="w-full bg-slate-800 border border-slate-700 rounded px-2.5 py-1.5 text-slate-200">
+                  </div>
+                  <div>
+                    <label class="block text-slate-400 mb-1">请求超时时间 (秒)</label>
+                    <input type="number" v-model.number="aiForm.timeout" class="w-full bg-slate-800 border border-slate-700 rounded px-2.5 py-1.5 text-slate-200">
+                  </div>
+                  <div>
+                    <label class="block text-slate-400 mb-1">失败重试次数</label>
+                    <input type="number" v-model.number="aiForm.max_retries" class="w-full bg-slate-800 border border-slate-700 rounded px-2.5 py-1.5 text-slate-200">
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- 开始提取按钮 -->
+            <button 
+              @click="startAIExtraction" 
+              :disabled="isExtracting || !selectedTaskId" 
+              class="w-full py-3 bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-700 hover:from-indigo-500 hover:to-purple-500 disabled:opacity-50 text-white font-medium rounded-xl shadow-lg shadow-indigo-600/30 transition flex items-center justify-center space-x-2">
+              <i v-if="!isExtracting" class="fa-solid fa-wand-magic-sparkles"></i>
+              <i v-else class="fa-solid fa-circle-notch fa-spin"></i>
+              <span>{{ isExtracting ? '正在理解语义并智能抽取字段中...' : '一键开始 AI 智能字段提取并入库' }}</span>
+            </button>
+          </div>
+
+          <!-- 右侧：提取结果整洁展示区 (JSON 格式高亮) -->
+          <div class="lg:col-span-5 bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl flex flex-col h-[650px]">
+            <div class="flex items-center justify-between border-b border-slate-800 pb-3 mb-3">
+              <span class="text-xs font-mono text-slate-400 flex items-center space-x-2">
+                <i class="fa-solid fa-code text-purple-400"></i>
+                <span>智能提取结构化结果 (JSON 格式)</span>
+              </span>
+              <button @click="copyExtractionJson" class="text-xs text-slate-400 hover:text-white transition">
+                <i class="fa-regular fa-copy mr-1"></i>复制结果
+              </button>
+            </div>
+
+            <div class="flex-1 overflow-y-auto bg-slate-950 p-4 rounded-xl border border-slate-800/80 font-mono text-xs text-slate-200 leading-relaxed">
+              <div v-if="!extractionResult" class="text-slate-600 text-center py-32">
+                等待提取中... 请在左侧配置字段并点击“开始 AI 智能字段提取”
+              </div>
+              <pre v-else class="whitespace-pre-wrap">{{ JSON.stringify(extractionResult, null, 2) }}</pre>
+            </div>
+
+            <!-- 数据入库状态条 -->
+            <div v-if="extractionSaveSummary" class="mt-3 p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-xl text-xs text-emerald-300 flex items-center justify-between">
+              <span class="flex items-center space-x-1.5">
+                <i class="fa-solid fa-circle-check"></i>
+                <span>已同步存入 MongoDB (主字段: {{ extractionSaveSummary.main_fields_saved }} 个, 子字段: {{ extractionSaveSummary.sub_fields_saved }} 个)</span>
+              </span>
+              <button @click="activeTab = 'storage'" class="text-emerald-400 hover:underline">
+                前往数据查看页 &rarr;
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= 页面 4: 数据存储查看页 (MongoDB 数据) ================= -->
+      <section v-if="activeTab === 'storage'" class="space-y-6">
+        <!-- 顶部搜索与三张表切换 -->
+        <div class="bg-slate-800/70 border border-slate-700 rounded-2xl p-5 shadow-xl flex flex-wrap items-center justify-between gap-4">
+          <!-- 三个标签页对应三张表 -->
+          <div class="flex items-center space-x-2 bg-slate-900 p-1 rounded-xl border border-slate-700">
+            <button 
+              @click="switchStorageTable('tasks')" 
+              :class="['px-3.5 py-1.5 text-xs font-medium rounded-lg transition', currentStorageTable === 'tasks' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white']">
+              1. 基础任务表 (crawl_tasks)
+            </button>
+            <button 
+              @click="switchStorageTable('main_fields')" 
+              :class="['px-3.5 py-1.5 text-xs font-medium rounded-lg transition', currentStorageTable === 'main_fields' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white']">
+              2. 主字段表 (main_fields)
+            </button>
+            <button 
+              @click="switchStorageTable('sub_fields')" 
+              :class="['px-3.5 py-1.5 text-xs font-medium rounded-lg transition', currentStorageTable === 'sub_fields' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white']">
+              3. 子字段表 (sub_fields)
+            </button>
+          </div>
+
+          <!-- 按任务 ID 搜索过滤 -->
+          <div class="flex items-center space-x-3">
+            <div class="relative">
+              <i class="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-slate-500 text-xs"></i>
+              <input 
+                type="text" 
+                v-model="storageSearchTaskId" 
+                @input="fetchStorageData"
+                placeholder="按任务 ID 搜索过滤..." 
+                class="bg-slate-900 border border-slate-700 rounded-lg pl-8 pr-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 w-56">
+            </div>
+            <button @click="fetchStorageData" class="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 rounded-lg text-xs text-slate-200 transition">
+              <i class="fa-solid fa-arrows-rotate mr-1"></i>刷新
+            </button>
+          </div>
+        </div>
+
+        <!-- 数据表格展示区 -->
+        <div class="bg-slate-800/70 border border-slate-700 rounded-2xl p-6 shadow-xl">
+          <div class="flex items-center justify-between mb-4">
+            <h3 class="text-sm font-semibold text-white flex items-center space-x-2">
+              <i class="fa-solid fa-database text-indigo-400"></i>
+              <span>表数据预览: {{ currentStorageTableTitle }} (共 {{ storageRows.length }} 条记录)</span>
+            </h3>
+            <span class="text-xs text-slate-400 font-mono">
+              MongoDB 连接串: {{ sysStatus.mongodb_uri }}
+            </span>
+          </div>
+
+          <div class="overflow-x-auto">
+            <!-- 1. 基础任务表 -->
+            <table v-if="currentStorageTable === 'tasks'" class="w-full text-left text-xs border-collapse">
+              <thead>
+                <tr class="border-b border-slate-700 text-slate-400">
+                  <th class="py-2.5 px-3">任务 ID</th>
+                  <th class="py-2.5 px-3">网址</th>
+                  <th class="py-2.5 px-3">爬取时间</th>
+                  <th class="py-2.5 px-3">MD 文件存储路径</th>
+                  <th class="py-2.5 px-3">MD 文件名称</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-700/50 text-slate-300">
+                <tr v-if="storageRows.length === 0"><td colspan="5" class="text-center py-8 text-slate-500">暂无数据</td></tr>
+                <tr v-for="(row, idx) in storageRows" :key="idx" class="hover:bg-slate-750">
+                  <td class="py-3 px-3 font-mono text-indigo-300 font-semibold">{{ row.task_id }}</td>
+                  <td class="py-3 px-3 max-w-xs truncate" :title="row.url">{{ row.url }}</td>
+                  <td class="py-3 px-3 text-slate-400">{{ row.crawl_time }}</td>
+                  <td class="py-3 px-3 font-mono text-slate-400 max-w-xs truncate" :title="row.md_file_path">{{ row.md_file_path }}</td>
+                  <td class="py-3 px-3 font-mono text-slate-300">{{ row.md_file_name }}</td>
+                </tr>
+              </tbody>
+            </table>
+
+            <!-- 2. 主字段表 -->
+            <table v-if="currentStorageTable === 'main_fields'" class="w-full text-left text-xs border-collapse">
+              <thead>
+                <tr class="border-b border-slate-700 text-slate-400">
+                  <th class="py-2.5 px-3">主字段 ID</th>
+                  <th class="py-2.5 px-3">名称</th>
+                  <th class="py-2.5 px-3">描述</th>
+                  <th class="py-2.5 px-3">所属任务 ID</th>
+                  <th class="py-2.5 px-3">来源 MD 位置</th>
+                  <th class="py-2.5 px-3 text-right">查看关联子字段</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-700/50 text-slate-300">
+                <tr v-if="storageRows.length === 0"><td colspan="6" class="text-center py-8 text-slate-500">暂无主字段数据</td></tr>
+                <tr v-for="(row, idx) in storageRows" :key="idx" class="hover:bg-slate-750">
+                  <td class="py-3 px-3 font-mono text-indigo-300">{{ row.main_field_id }}</td>
+                  <td class="py-3 px-3 font-semibold text-white">{{ row.name }}</td>
+                  <td class="py-3 px-3 text-slate-400">{{ row.desc }}</td>
+                  <td class="py-3 px-3 font-mono text-slate-300">{{ row.task_id }}</td>
+                  <td class="py-3 px-3 text-slate-400">{{ row.md_position || '正文' }}</td>
+                  <td class="py-3 px-3 text-right">
+                    <button @click="filterSubFieldsByMain(row.main_field_id)" class="px-2 py-1 bg-slate-700 hover:bg-slate-600 rounded text-indigo-300">
+                      查看归属子字段 &rarr;
+                    </button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+
+            <!-- 3. 子字段表 -->
+            <table v-if="currentStorageTable === 'sub_fields'" class="w-full text-left text-xs border-collapse">
+              <thead>
+                <tr class="border-b border-slate-700 text-slate-400">
+                  <th class="py-2.5 px-3">子字段 ID</th>
+                  <th class="py-2.5 px-3">名称</th>
+                  <th class="py-2.5 px-3">描述</th>
+                  <th class="py-2.5 px-3">提取值 (Extracted Value)</th>
+                  <th class="py-2.5 px-3">数据类型标注</th>
+                  <th class="py-2.5 px-3">所属主字段 ID</th>
+                  <th class="py-2.5 px-3">所属任务 ID</th>
+                  <th class="py-2.5 px-3">来源 MD 位置</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-700/50 text-slate-300">
+                <tr v-if="storageRows.length === 0"><td colspan="8" class="text-center py-8 text-slate-500">暂无子字段数据</td></tr>
+                <tr v-for="(row, idx) in storageRows" :key="idx" class="hover:bg-slate-750">
+                  <td class="py-3 px-3 font-mono text-purple-300">{{ row.sub_field_id }}</td>
+                  <td class="py-3 px-3 font-semibold text-white">{{ row.name }}</td>
+                  <td class="py-3 px-3 text-slate-400">{{ row.desc }}</td>
+                  <td class="py-3 px-3 font-medium text-emerald-300 max-w-xs truncate" :title="row.extracted_value">
+                    {{ row.extracted_value }}
+                  </td>
+                  <td class="py-3 px-3">
+                    <span :class="['px-2 py-0.5 rounded text-[11px] font-mono', {
+                      'bg-sky-500/20 text-sky-300': row.value_type === 'text',
+                      'bg-emerald-500/20 text-emerald-300': row.value_type === 'number',
+                      'bg-amber-500/20 text-amber-300': row.value_type === 'datetime',
+                      'bg-purple-500/20 text-purple-300': row.value_type === 'array',
+                      'bg-rose-500/20 text-rose-300': row.value_type === 'object'
+                    }]">
+                      {{ row.value_type }}
+                    </span>
+                  </td>
+                  <td class="py-3 px-3 font-mono text-slate-400">{{ row.main_field_id }}</td>
+                  <td class="py-3 px-3 font-mono text-slate-400">{{ row.task_id }}</td>
+                  <td class="py-3 px-3 text-slate-400 max-w-[150px] truncate" :title="row.md_position">{{ row.md_position }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+    </main>
+
+    <!-- 配置中心弹窗 (Modal) -->
+    <div v-if="showConfigModal" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      <div class="bg-slate-800 border border-slate-700 rounded-2xl max-w-lg w-full p-6 space-y-4 shadow-2xl">
+        <div class="flex items-center justify-between border-b border-slate-700 pb-3">
+          <h3 class="text-sm font-semibold text-white flex items-center space-x-2">
+            <i class="fa-solid fa-sliders text-indigo-400"></i>
+            <span>系统全局配置 (无硬编码)</span>
+          </h3>
+          <button @click="showConfigModal = false" class="text-slate-400 hover:text-white">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+        </div>
+        <div class="space-y-3 text-xs">
+          <div>
+            <label class="block text-slate-300 mb-1">MongoDB 连接串</label>
+            <input type="text" v-model="systemConfigForm.mongodb_uri" class="w-full bg-slate-900 border border-slate-700 rounded p-2 text-slate-100 font-mono">
+          </div>
+          <div>
+            <label class="block text-slate-300 mb-1">NewAPI 模型调用地址</label>
+            <input type="text" v-model="systemConfigForm.newapi_url" class="w-full bg-slate-900 border border-slate-700 rounded p-2 text-slate-100 font-mono">
+          </div>
+          <div>
+            <label class="block text-slate-300 mb-1">NewAPI API Key</label>
+            <input type="text" v-model="systemConfigForm.newapi_key" class="w-full bg-slate-900 border border-slate-700 rounded p-2 text-slate-100 font-mono">
+          </div>
+          <div>
+            <label class="block text-slate-300 mb-1">NewAPI 模型名称</label>
+            <input type="text" v-model="systemConfigForm.newapi_model" class="w-full bg-slate-900 border border-slate-700 rounded p-2 text-slate-100 font-mono">
+          </div>
+        </div>
+        <div class="flex justify-end space-x-2 pt-2 border-t border-slate-700">
+          <button @click="showConfigModal = false" class="px-3 py-1.5 bg-slate-700 text-slate-300 rounded text-xs">取消</button>
+          <button @click="saveSystemConfig" class="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded text-xs font-medium">保存配置</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

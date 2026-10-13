@@ -1,0 +1,34 @@
+[project]
+name = "crawler-extractor"
+version = "1.0.0"
+description = "通用爬虫与数据智能提取系统 - RAG & Agent 知识摄取端到端闭环平台"
+requires-python = ">=3.10"
+
+dependencies = [
+    "fastapi>=0.143.0",
+    "uvicorn[standard]>=0.54.0",
+    "pydantic>=2.14.0",
+    "httpx>=0.28.0",
+    "requests>=2.34.0",
+    "beautifulsoup4>=4.15.0",
+    "html2text>=2025.4.0",
+    "charset-normalizer>=3.5.0",
+    "pymongo>=4.18.0",
+    "pyyaml>=6.0.0",
+    "python-multipart>=0.0.32",
+    "python-dotenv>=1.2.0",
+    "playwright>=1.40.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=9.1.0",
+]
+
+[tool.uv]
+# uvloop 仅在 Linux/macOS 生效，Windows 不支持，uv 会自动跳过
+# 项目在 Windows 下会自动使用 asyncio 事件循环（uvicorn 默认行为）
+environments = ["sys_platform != 'win32'"]
+
+[tool.uv.sources]
+# 无特殊私有源，直接使用官方 PyPI

@@ -1,0 +1,56 @@
+# Python 虚拟环境与字节码
+.venv/
+.venv*/
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# 测试与代码分析
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.nox/
+
+# 编辑器与系统文件
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# 运行时生成的数据文件 (保持开源仓库干净)
+data/md_storage/*.md
+!data/md_storage/.gitkeep
+data/local_storage/*.json
+!data/local_storage/.gitkeep
+
+# 敏感与个人面试文件 (以防万一)
+*.docx
+*.pdf
+*面试*.md
+*自我介绍*.md
+*账户信息*
